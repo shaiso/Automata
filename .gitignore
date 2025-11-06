@@ -1,0 +1,16 @@
+# Go
+bin/
+*.test
+*.out
+# IDE
+.vscode/
+.idea/
+# OS
+.DS_Store
+# Env/Secrets
+.env
+*.env
+.env.*
+# Docker
+**/tmp/
+**/data/
