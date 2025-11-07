@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: automata
+      POSTGRES_PASSWORD: automata
+      POSTGRES_DB: automata
+    ports:
+      - "55432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: automata
+      RABBITMQ_DEFAULT_PASS: automata
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # UI
+
+volumes:
+  dbdata:
