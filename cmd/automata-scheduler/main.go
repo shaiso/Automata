@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,11 +11,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/shaiso/Automata/internal/repo"
+	"github.com/shaiso/Automata/internal/telemetry"
 )
 
 const schedLockKey int64 = 424242
 
 func main() {
+	// Инициализируем structured logging
+	logger := telemetry.SetupLogger()
+	logger.Info("starting automata-scheduler")
+
 	// graceful shutdown
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -24,10 +28,11 @@ func main() {
 	// DB pool
 	pool, err := repo.NewPool(ctx)
 	if err != nil {
-		log.Fatalf("[scheduler] db connect: %v", err)
+		logger.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
-	log.Printf("[scheduler] db connected")
+	logger.Info("database connected")
 
 	// HTTP mux: /healthz + /metrics
 	mux := http.NewServeMux()
@@ -46,20 +51,24 @@ func main() {
 		defer func() {
 			if hasLock {
 				_, _ = pool.Exec(context.Background(), "select pg_advisory_unlock($1)", schedLockKey)
+				logger.Info("released leader lock")
 			}
 		}()
 
 		for {
 			select {
-			case t := <-tk.C:
+			case <-tk.C:
 				// пытаемся стать лидером (или подтвердить лидерство)
 				var ok bool
 				if !hasLock {
 					if err := pool.QueryRow(ctx, "select pg_try_advisory_lock($1)", schedLockKey).Scan(&ok); err != nil {
-						log.Printf("[scheduler] lock err: %v", err)
+						logger.Error("failed to acquire lock", "error", err)
 						continue
 					}
-					hasLock = ok
+					if ok {
+						hasLock = true
+						logger.Info("acquired leader lock")
+					}
 				}
 
 				if !hasLock {
@@ -68,7 +77,7 @@ func main() {
 				}
 
 				// лидер выполняет логику тика
-				log.Printf("[scheduler] tick %s", t.Format(time.RFC3339))
+				logger.Debug("scheduler tick")
 				// TODO: тут будет выборка due schedules -> создание runs -> bump next_due_at
 
 			case <-ctx.Done():
@@ -82,9 +91,10 @@ func main() {
 	if v := os.Getenv("SCHED_PORT"); v != "" {
 		port = ":" + v
 	}
-	log.Printf("[scheduler] listening on %s", port)
+
+	logger.Info("listening", "addr", port)
 	if err := http.ListenAndServe(port, mux); err != nil {
-		log.Printf("[scheduler] http error: %v", err)
+		logger.Error("http server error", "error", err)
 		cancel()
 	}
 }
