@@ -17,3 +17,4 @@ bin/
 
 # Claude Code
 .claude/
+CLAUDE.md

@@ -142,9 +142,9 @@ Flow описывается в формате JSON:
 - [x] `internal/repo/*` — CRUD для flows, runs, tasks, schedules, proposals
 
 ### Фаза 2: RabbitMQ
-- [ ] Подключение с reconnect
-- [ ] Publisher и Consumer
-- [ ] Topology (exchanges, queues)
+- [x] Подключение с reconnect
+- [x] Publisher и Consumer
+- [x] Topology (exchanges, queues)
 
 ### Фаза 3: REST API
 - [ ] CRUD /flows, /runs, /schedules
