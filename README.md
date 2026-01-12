@@ -147,8 +147,8 @@ Flow описывается в формате JSON:
 - [x] Topology (exchanges, queues)
 
 ### Фаза 3: REST API
-- [ ] CRUD /flows, /runs, /schedules
-- [ ] Версионирование flows
+- [x] CRUD /flows, /runs, /schedules
+- [x] Версионирование flows
 
 ### Фаза 4: Scheduler
 - [ ] Leader election (advisory locks)
