@@ -10,7 +10,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/shaiso/Automata/internal/mq"
 	"github.com/shaiso/Automata/internal/repo"
+	"github.com/shaiso/Automata/internal/scheduler"
 	"github.com/shaiso/Automata/internal/telemetry"
 )
 
@@ -33,6 +35,43 @@ func main() {
 	}
 	defer pool.Close()
 	logger.Info("database connected")
+
+	// Создаём репозитории
+	scheduleRepo := repo.NewScheduleRepo(pool)
+	runRepo := repo.NewRunRepo(pool)
+	flowRepo := repo.NewFlowRepo(pool)
+
+	// RabbitMQ
+	var publisher *mq.Publisher
+	mqURL := os.Getenv("RABBITMQ_URL")
+	if mqURL == "" {
+		mqURL = "amqp://automata:automata@localhost:5672/"
+	}
+
+	mqConn, err := mq.NewConnection(mqURL, logger)
+	if err != nil {
+		logger.Warn("RabbitMQ not available, running without message publishing", "error", err)
+	} else {
+		defer mqConn.Close()
+		logger.Info("RabbitMQ connected")
+
+		// Создаём топологию
+		if err := mq.SetupTopology(ctx, mqConn); err != nil {
+			logger.Warn("failed to setup topology", "error", err)
+		}
+
+		publisher = mq.NewPublisher(mqConn, logger)
+	}
+
+	// Создаём scheduler
+	sched := scheduler.New(scheduler.Config{
+		ScheduleRepo: scheduleRepo,
+		RunRepo:      runRepo,
+		FlowRepo:     flowRepo,
+		Publisher:    publisher,
+		Logger:       logger,
+		BatchSize:    100,
+	})
 
 	// HTTP mux: /healthz + /metrics
 	mux := http.NewServeMux()
@@ -77,8 +116,9 @@ func main() {
 				}
 
 				// лидер выполняет логику тика
-				logger.Debug("scheduler tick")
-				// TODO: тут будет выборка due schedules -> создание runs -> bump next_due_at
+				if err := sched.Tick(ctx); err != nil {
+					logger.Error("scheduler tick failed", "error", err)
+				}
 
 			case <-ctx.Done():
 				return

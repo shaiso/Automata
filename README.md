@@ -32,6 +32,26 @@
 3. **Orchestrator** → потребляет runs → парсит DAG → создаёт tasks → публикует в RabbitMQ
 4. **Worker** → потребляет tasks → выполняет → публикует результат
 
+### Принцип устойчивости
+
+**PostgreSQL — source of truth, RabbitMQ — оптимизация.**
+
+```
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Scheduler  │────▶│  PostgreSQL  │────▶│ Orchestrator │
+│             │     │   (runs)     │     │   (polling)  │
+└──────┬──────┘     └──────────────┘     └──────▲───────┘
+       │                                        │
+       │            ┌──────────────┐            │
+       └───────────▶│   RabbitMQ   │────────────┘
+                    │ (run.pending)│  event-driven
+                    └──────────────┘
+```
+
+- **Нормальный режим**: RabbitMQ доставляет события мгновенно
+- **При сбое MQ**: Orchestrator подхватывает runs через polling из БД
+- **Гарантия**: ни один run не потеряется, даже если RabbitMQ недоступен
+
 ---
 
 ## Структура проекта
@@ -74,6 +94,7 @@ Automata/
 | Логирование | `log/slog` |
 | PostgreSQL | `pgx/v5` |
 | RabbitMQ | `amqp091-go` |
+| Cron | `robfig/cron/v3` |
 | UUID | `google/uuid` |
 | Метрики | `prometheus/client_golang` |
 
@@ -151,9 +172,10 @@ Flow описывается в формате JSON:
 - [x] Версионирование flows
 
 ### Фаза 4: Scheduler
-- [ ] Leader election (advisory locks)
-- [ ] Обработка due schedules
-- [ ] Cron parsing
+- [x] Leader election (advisory locks)
+- [x] Обработка due schedules
+- [x] Cron parsing (robfig/cron/v3)
+- [x] Публикация run.pending в RabbitMQ
 
 ### Фаза 5: Engine + Steps
 - [ ] Парсер FlowSpec
@@ -162,8 +184,11 @@ Flow описывается в формате JSON:
 - [ ] Реализация шагов
 
 ### Фаза 6: Orchestrator
-- [ ] State machine для run
-- [ ] Управление зависимостями
+- [ ] Гибридный подход: Event-driven + Polling
+  - Event-driven: слушает `runs.pending` из RabbitMQ (низкая latency)
+  - Polling: периодически проверяет `ListPending()` (fallback при сбое MQ)
+- [ ] State machine для run (PENDING → RUNNING → SUCCEEDED/FAILED)
+- [ ] Управление зависимостями между tasks (DAG)
 
 ### Фаза 7: Worker
 - [ ] Выполнение tasks
