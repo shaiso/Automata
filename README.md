@@ -178,10 +178,10 @@ Flow описывается в формате JSON:
 - [x] Публикация run.pending в RabbitMQ
 
 ### Фаза 5: Engine + Steps
-- [ ] Парсер FlowSpec
-- [ ] DAG структура
-- [ ] Go templates для данных
-- [ ] Реализация шагов
+- [x] Парсер FlowSpec
+- [x] DAG структура
+- [x] Go templates для данных
+- [x] Реализация шагов
 
 ### Фаза 6: Orchestrator
 - [ ] Гибридный подход: Event-driven + Polling
