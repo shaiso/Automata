@@ -184,11 +184,13 @@ Flow описывается в формате JSON:
 - [x] Реализация шагов
 
 ### Фаза 6: Orchestrator
-- [ ] Гибридный подход: Event-driven + Polling
+- [x] Гибридный подход: Event-driven + Polling
   - Event-driven: слушает `runs.pending` из RabbitMQ (низкая latency)
   - Polling: периодически проверяет `ListPending()` (fallback при сбое MQ)
-- [ ] State machine для run (PENDING → RUNNING → SUCCEEDED/FAILED)
-- [ ] Управление зависимостями между tasks (DAG)
+- [x] State machine для run (PENDING → RUNNING → SUCCEEDED/FAILED)
+- [x] Управление зависимостями между tasks (DAG)
+- [x] RunState для управления состоянием в памяти
+- [x] Восстановление состояния после рестарта
 
 ### Фаза 7: Worker
 - [ ] Выполнение tasks
