@@ -193,8 +193,14 @@ Flow описывается в формате JSON:
 - [x] Восстановление состояния после рестарта
 
 ### Фаза 7: Worker
-- [ ] Выполнение tasks
-- [ ] Retry с backoff
+- [x] Executor interface + Registry (http, delay, transform)
+- [x] HTTPExecutor (GET/POST/PUT/DELETE, headers, body, timeout, JSON parsing)
+- [x] DelayExecutor (context-aware timer)
+- [x] TransformExecutor (pass-through rendered payload)
+- [x] Retry с exponential backoff (in-process, OnStatus для HTTP)
+- [x] Гибридный подход: Consumer (tasks.ready) + Polling fallback
+- [x] Graceful shutdown, publisher nil-safety
+- [x] Полная точка входа cmd/automata-worker
 
 ### Фаза 8: CLI
 - [ ] Команды для flows, runs, schedules
