@@ -3,10 +3,12 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/shaiso/Automata/internal/domain"
 	"github.com/shaiso/Automata/internal/repo"
+	"github.com/shaiso/Automata/internal/scheduler"
 )
 
 // ListSchedules возвращает список schedules с фильтрацией.
@@ -89,6 +91,7 @@ func (h *Handler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 		timezone = "UTC"
 	}
 
+	now := time.Now()
 	schedule := &domain.Schedule{
 		ID:          uuid.New(),
 		FlowID:      flowID,
@@ -98,7 +101,17 @@ func (h *Handler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 		Timezone:    timezone,
 		Enabled:     req.Enabled,
 		Inputs:      req.Inputs,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
+
+	// Вычисляем первое время запуска
+	nextDue, err := scheduler.CalculateNextDue(schedule, now)
+	if err != nil {
+		BadRequest(w, "invalid schedule parameters: "+err.Error())
+		return
+	}
+	schedule.NextDueAt = &nextDue
 
 	if err := h.scheduleRepo.Create(r.Context(), schedule); err != nil {
 		InternalError(w, h.logger, err)
@@ -148,17 +161,32 @@ func (h *Handler) UpdateSchedule(w http.ResponseWriter, r *http.Request) {
 	if req.Name != nil {
 		schedule.Name = *req.Name
 	}
+
+	scheduleChanged := false
 	if req.CronExpr != nil {
 		schedule.CronExpr = *req.CronExpr
+		scheduleChanged = true
 	}
 	if req.IntervalSec != nil {
 		schedule.IntervalSec = *req.IntervalSec
+		scheduleChanged = true
 	}
 	if req.Timezone != nil {
 		schedule.Timezone = *req.Timezone
+		scheduleChanged = true
 	}
 	if req.Inputs != nil {
 		schedule.Inputs = *req.Inputs
+	}
+
+	// Пересчитываем NextDueAt если изменились параметры расписания
+	if scheduleChanged {
+		nextDue, err := scheduler.CalculateNextDue(schedule, time.Now())
+		if err != nil {
+			BadRequest(w, "invalid schedule parameters: "+err.Error())
+			return
+		}
+		schedule.NextDueAt = &nextDue
 	}
 
 	if err := h.scheduleRepo.Update(r.Context(), schedule); err != nil {

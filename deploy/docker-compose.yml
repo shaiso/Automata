@@ -1,4 +1,5 @@
 services:
+
   db:
     image: postgres:16
     restart: unless-stopped
@@ -10,6 +11,11 @@ services:
       - "55432:5432"
     volumes:
       - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U automata"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -20,6 +26,119 @@ services:
     ports:
       - "5672:5672"   # AMQP
       - "15672:15672" # UI
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: postgres:16
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ../migrations:/migrations:ro
+    entrypoint: >
+      sh -c '
+        for f in /migrations/*.sql; do
+          echo "--> $$f";
+          cat "$$f" | psql -h db -U automata -d automata -v ON_ERROR_STOP=1 || exit 1;
+        done;
+        echo "Migrations applied successfully."
+      '
+    environment:
+      PGPASSWORD: automata
+    restart: "no"
+
+  automata-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: automata-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: postgresql://automata:automata@db:5432/automata?sslmode=disable
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  automata-scheduler:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: automata-scheduler
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      DB_URL: postgresql://automata:automata@db:5432/automata?sslmode=disable
+      RABBITMQ_URL: amqp://automata:automata@rabbitmq:5672/
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  automata-orchestrator:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: automata-orchestrator
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      DB_URL: postgresql://automata:automata@db:5432/automata?sslmode=disable
+      RABBITMQ_URL: amqp://automata:automata@rabbitmq:5672/
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8083/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  automata-worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: automata-worker
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      DB_URL: postgresql://automata:automata@db:5432/automata?sslmode=disable
+      RABBITMQ_URL: amqp://automata:automata@rabbitmq:5672/
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
 volumes:
   dbdata:

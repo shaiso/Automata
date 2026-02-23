@@ -7,13 +7,25 @@ DB_HOST=localhost
 DB_PORT=55432
 DB_URL=postgresql://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
 
-.PHONY: up down ps logs tidy build fmt vet test migrate-up db-shell dev-api dev-scheduler dev-orchestrator dev-worker
+.PHONY: up down ps logs tidy build fmt vet test migrate-up db-shell dev-api dev-scheduler dev-orchestrator dev-worker up-all down-all logs-all
 up:
-	docker compose -f deploy/docker-compose.yml up -d
+	docker compose -f deploy/docker-compose.yml up -d db rabbitmq
 	sleep 2
 
 down:
 	docker compose -f deploy/docker-compose.yml down
+
+# Поднять всю систему (инфра + сервисы) в Docker
+up-all:
+	docker compose -f deploy/docker-compose.yml up -d --build
+
+# Остановить всю систему
+down-all:
+	docker compose -f deploy/docker-compose.yml down
+
+# Логи всех сервисов
+logs-all:
+	docker compose -f deploy/docker-compose.yml logs -f --tail=100
 
 ps:
 	docker compose -f deploy/docker-compose.yml ps

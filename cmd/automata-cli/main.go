@@ -1,47 +1,55 @@
-// Automata CLI — утилита командной строки.
+// Automata CLI — инструмент командной строки для управления
+// flows, runs и schedules через HTTP API.
+//
+// Использование:
+//
+//	automata [--api-url URL] [--json] <command> <subcommand> [flags]
 //
 // Команды:
-//   automata flow list|create|show|delete
-//   automata run list|start|show|cancel
-//   automata schedule list|create|enable|disable|delete
-//   automata proposal create|test|apply
+//
+//	flow      Управление flows
+//	run       Управление runs
+//	schedule  Управление schedules
 package main
 
 import (
 	"fmt"
 	"os"
+
+	"github.com/spf13/cobra"
+
+	"github.com/shaiso/Automata/internal/cli"
 )
 
+// version задаётся через ldflags при сборке.
+var version = "dev"
+
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
+	var apiURL string
+	var jsonOutput bool
+
+	rootCmd := &cobra.Command{
+		Use:           "automata",
+		Short:         "Automata CLI — workflow automation tool",
+		Version:       version,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
-	// TODO: реализовать команды
-	// - Парсинг аргументов (можно использовать flag или cobra)
-	// - HTTP клиент для обращения к API
-	// - Форматированный вывод результатов
+	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", "http://localhost:8080", "API server URL")
+	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
 
-	fmt.Println("automata cli - not implemented yet")
-	fmt.Printf("args: %v\n", os.Args[1:])
-}
+	clientFn := func() *cli.Client { return cli.NewClient(apiURL) }
+	outputFn := func() *cli.Output { return cli.NewOutput(jsonOutput) }
 
-func printUsage() {
-	fmt.Println(`Automata CLI - управление workflow automation
+	rootCmd.AddCommand(
+		cli.NewFlowCmd(clientFn, outputFn),
+		cli.NewRunCmd(clientFn, outputFn),
+		cli.NewScheduleCmd(clientFn, outputFn),
+	)
 
-Использование:
-  automata <command> <subcommand> [options]
-
-Команды:
-  flow      Управление flows
-  run       Управление runs
-  schedule  Управление schedules
-  proposal  Управление proposals (PR-workflow)
-
-Примеры:
-  automata flow list
-  automata flow create -f flow.json
-  automata run start my-flow
-  automata run show abc123`)
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
+	}
 }

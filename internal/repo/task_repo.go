@@ -174,6 +174,7 @@ func (r *TaskRepo) CountByRunAndStatus(ctx context.Context, runID uuid.UUID, sta
 func (r *TaskRepo) scanTask(row pgx.Row) (*domain.Task, error) {
 	var task domain.Task
 	var payloadJSON, outputsJSON []byte
+	var resultRef, taskError *string
 
 	err := row.Scan(
 		&task.ID,
@@ -185,10 +186,10 @@ func (r *TaskRepo) scanTask(row pgx.Row) (*domain.Task, error) {
 		&task.Status,
 		&payloadJSON,
 		&outputsJSON,
-		&task.ResultRef,
+		&resultRef,
 		&task.StartedAt,
 		&task.FinishedAt,
-		&task.Error,
+		&taskError,
 		&task.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -208,6 +209,12 @@ func (r *TaskRepo) scanTask(row pgx.Row) (*domain.Task, error) {
 			return nil, fmt.Errorf("unmarshal outputs: %w", err)
 		}
 	}
+	if resultRef != nil {
+		task.ResultRef = *resultRef
+	}
+	if taskError != nil {
+		task.Error = *taskError
+	}
 
 	return &task, nil
 }
@@ -215,6 +222,7 @@ func (r *TaskRepo) scanTask(row pgx.Row) (*domain.Task, error) {
 func (r *TaskRepo) scanTaskFromRows(rows pgx.Rows) (*domain.Task, error) {
 	var task domain.Task
 	var payloadJSON, outputsJSON []byte
+	var resultRef, taskError *string
 
 	err := rows.Scan(
 		&task.ID,
@@ -226,10 +234,10 @@ func (r *TaskRepo) scanTaskFromRows(rows pgx.Rows) (*domain.Task, error) {
 		&task.Status,
 		&payloadJSON,
 		&outputsJSON,
-		&task.ResultRef,
+		&resultRef,
 		&task.StartedAt,
 		&task.FinishedAt,
-		&task.Error,
+		&taskError,
 		&task.CreatedAt,
 	)
 	if err != nil {
@@ -245,6 +253,12 @@ func (r *TaskRepo) scanTaskFromRows(rows pgx.Rows) (*domain.Task, error) {
 		if err := json.Unmarshal(outputsJSON, &task.Outputs); err != nil {
 			return nil, fmt.Errorf("unmarshal outputs: %w", err)
 		}
+	}
+	if resultRef != nil {
+		task.ResultRef = *resultRef
+	}
+	if taskError != nil {
+		task.Error = *taskError
 	}
 
 	return &task, nil

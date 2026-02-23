@@ -1,5 +1,14 @@
-create type run_status as enum ('PENDING','RUNNING','SUCCEEDED','FAILED','CANCELLED');
-create type task_status as enum ('QUEUED','RUNNING','SUCCEEDED','FAILED');
+DO $$ BEGIN
+    CREATE TYPE run_status AS ENUM ('PENDING','RUNNING','SUCCEEDED','FAILED','CANCELLED');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE task_status AS ENUM ('QUEUED','RUNNING','SUCCEEDED','FAILED');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
 
 create table if not exists flows(
   id uuid primary key,

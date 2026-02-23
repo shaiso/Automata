@@ -1,5 +1,6 @@
 # Go
 bin/
+automata-*
 *.test
 *.out
 # IDE
@@ -19,4 +20,5 @@ bin/
 .claude/
 CLAUDE.md
 
-README_KT1.md
+# Docs (локальная документация)
+docs/

@@ -23,9 +23,13 @@ ALTER TABLE schedules ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL D
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 -- Создаём тип для статуса proposal
-CREATE TYPE IF NOT EXISTS proposal_status AS ENUM (
-    'DRAFT', 'PENDING_REVIEW', 'APPROVED', 'REJECTED', 'APPLIED'
-);
+DO $$ BEGIN
+    CREATE TYPE proposal_status AS ENUM (
+        'DRAFT', 'PENDING_REVIEW', 'APPROVED', 'REJECTED', 'APPLIED'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Создаём таблицу proposals для PR-workflow
 CREATE TABLE IF NOT EXISTS proposals (

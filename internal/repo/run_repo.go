@@ -78,7 +78,7 @@ func (r *RunRepo) List(ctx context.Context, filter RunFilter) ([]domain.Run, err
 		       error, idempotency_key, is_sandbox, created_at
 		FROM runs
 		WHERE ($1::uuid IS NULL OR flow_id = $1)
-		  AND ($2::text IS NULL OR status = $2)
+		  AND ($2::text IS NULL OR status = $2::run_status)
 		ORDER BY created_at DESC
 		LIMIT $3 OFFSET $4
 	`
@@ -169,6 +169,7 @@ func (r *RunRepo) scanRun(row pgx.Row) (*domain.Run, error) {
 	var run domain.Run
 	var inputsJSON []byte
 	var idempotencyKey *string
+	var runError *string
 
 	err := row.Scan(
 		&run.ID,
@@ -178,7 +179,7 @@ func (r *RunRepo) scanRun(row pgx.Row) (*domain.Run, error) {
 		&inputsJSON,
 		&run.StartedAt,
 		&run.FinishedAt,
-		&run.Error,
+		&runError,
 		&idempotencyKey,
 		&run.IsSandbox,
 		&run.CreatedAt,
@@ -199,6 +200,9 @@ func (r *RunRepo) scanRun(row pgx.Row) (*domain.Run, error) {
 	if idempotencyKey != nil {
 		run.IdempotencyKey = *idempotencyKey
 	}
+	if runError != nil {
+		run.Error = *runError
+	}
 
 	return &run, nil
 }
@@ -208,6 +212,7 @@ func (r *RunRepo) scanRunFromRows(rows pgx.Rows) (*domain.Run, error) {
 	var run domain.Run
 	var inputsJSON []byte
 	var idempotencyKey *string
+	var runError *string
 
 	err := rows.Scan(
 		&run.ID,
@@ -217,7 +222,7 @@ func (r *RunRepo) scanRunFromRows(rows pgx.Rows) (*domain.Run, error) {
 		&inputsJSON,
 		&run.StartedAt,
 		&run.FinishedAt,
-		&run.Error,
+		&runError,
 		&idempotencyKey,
 		&run.IsSandbox,
 		&run.CreatedAt,
@@ -234,6 +239,9 @@ func (r *RunRepo) scanRunFromRows(rows pgx.Rows) (*domain.Run, error) {
 
 	if idempotencyKey != nil {
 		run.IdempotencyKey = *idempotencyKey
+	}
+	if runError != nil {
+		run.Error = *runError
 	}
 
 	return &run, nil

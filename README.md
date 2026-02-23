@@ -17,13 +17,13 @@
 
 ### Компоненты
 
-| Компонент | Порт | Описание |
-|-----------|------|----------|
+| Компонент | Порт  | Описание |
+|-----------|-------|----------|
 | **API Server** | :8080 | REST API для управления flows, runs, schedules |
 | **Scheduler** | :8081 | Планировщик с leader election, создаёт runs по расписанию |
-| **Orchestrator** | — | Парсит DAG, создаёт tasks, управляет выполнением |
-| **Worker** | — | Выполняет tasks (HTTP, delay, transform) |
-| **CLI** | — | Утилита командной строки для пользователей |
+| **Orchestrator** | :8083 | Парсит DAG, создаёт tasks, управляет выполнением |
+| **Worker** | :8082 | Выполняет tasks (HTTP, delay, transform) |
+| **CLI** | —     | Утилита командной строки для пользователей |
 
 ### Потоки данных
 
@@ -87,21 +87,25 @@ Automata/
 
 ## Технологии
 
-| Компонент | Технология |
-|-----------|------------|
-| Язык | Go 1.24 |
+| Компонент   | Технология |
+|-------------|------------|
+| Язык        | Go 1.24 |
 | HTTP Router | `net/http` |
 | Логирование | `log/slog` |
-| PostgreSQL | `pgx/v5` |
-| RabbitMQ | `amqp091-go` |
-| Cron | `robfig/cron/v3` |
-| UUID | `google/uuid` |
-| Метрики | `prometheus/client_golang` |
-
+| PostgreSQL  | `pgx/v5` |
+| RabbitMQ    | `amqp091-go` |
+| Cron        | `robfig/cron/v3` |
+| UUID        | `google/uuid` |
+| Метрики     | `prometheus/client_golang` |
+| CLI         | `github.com/spf13/cobra` |
 ---
 
 ## Flow Spec
 
+
+Flow — это "шаблон" или "рецепт" автоматизации.
+Один flow может иметь множество версий (FlowVersion).
+Каждый запуск (Run) выполняет конкретную версию flow.
 Flow описывается в формате JSON:
 
 ```json
@@ -203,7 +207,13 @@ Flow описывается в формате JSON:
 - [x] Полная точка входа cmd/automata-worker
 
 ### Фаза 8: CLI
-- [ ] Команды для flows, runs, schedules
+- [x] Cobra CLI framework (github.com/spf13/cobra)
+- [x] HTTP-клиент для API (Client с полным покрытием эндпоинтов)
+- [x] Форматирование вывода (таблицы + --json)
+- [x] Команды flow: list, create, show, update, delete, versions, publish
+- [x] Команды run: list, start, show, cancel, tasks
+- [x] Команды schedule: list, create, show, update, delete, enable, disable
+- [x] Точка входа cmd/automata-cli с PersistentFlags (--api-url, --json)
 
 ### Фаза 9: PR-Workflow + Sandbox
 - [ ] Proposals (предложения изменений)
@@ -218,33 +228,65 @@ Flow описывается в формате JSON:
 ## Быстрый старт
 
 ```bash
-# Запуск инфраструктуры (Postgres + RabbitMQ)
-make up
+make up-all       # Собрать образы и поднять всё: Postgres, RabbitMQ, миграции, 4 сервиса
+make down-all     # Остановить всё и удалить контейнеры
+make logs-all     # Логи всех сервисов (follow, последние 100 строк)
 
-# Применить миграции
-make migrate-up
-
-# Запуск сервисов
-make dev-api          # API на :8080
-make dev-scheduler    # Scheduler на :8081
-make dev-orchestrator
-make dev-worker
 ```
 
 ---
+## CLI-команды
 
-## Команды
+CLI собирается из `cmd/automata-cli/` и взаимодействует с API через HTTP.
 
 ```bash
-make up            # Запустить Postgres + RabbitMQ
-make down          # Остановить инфраструктуру
-make migrate-up    # Применить миграции
-make db-shell      # Подключиться к БД
+go build -o automata ./cmd/automata-cli/
+```
 
-make build         # Собрать все сервисы
-make test          # Запустить тесты
-make fmt           # Форматирование кода
-make vet           # Статический анализ
+Глобальные флаги:
+- `--api-url` — адрес API (по умолчанию `http://localhost:8080`)
+- `--json` — вывод в JSON-формате
+
+### Flows
+
+```bash
+automata flow list                          # Список всех flows
+automata flow create --name "my-flow"       # Создать flow
+automata flow show <ID>                     # Детали flow
+automata flow update <ID> --name "new-name" # Обновить имя
+automata flow update <ID> --active true     # Активировать
+automata flow delete <ID>                   # Удалить
+automata flow versions <ID>                 # Список версий
+automata flow publish <ID> --spec-file f.json  # Опубликовать версию
+```
+
+### Runs
+
+```bash
+automata run list --flow-id <FLOW_ID>       # Список runs
+automata run start <FLOW_ID>                # Запустить run
+automata run start <FLOW_ID> --input "key=value" --input "k2=v2"  # С параметрами
+automata run start <FLOW_ID> --sandbox      # Запуск в sandbox
+automata run start <FLOW_ID> --version 2    # Конкретная версия
+automata run show <RUN_ID>                  # Детали run
+automata run tasks <RUN_ID>                 # Список задач в run
+automata run cancel <RUN_ID>                # Отменить run
+```
+
+### Schedules
+
+```bash
+automata schedule list                      # Все расписания
+automata schedule list --flow-id <ID>       # Расписания для flow
+automata schedule create <FLOW_ID> --name "daily" --cron "0 9 * * *"    # По cron
+automata schedule create <FLOW_ID> --name "5min" --interval 300          # По интервалу
+automata schedule create <FLOW_ID> --name "tz" --cron "0 9 * * *" --timezone "Europe/Moscow"
+automata schedule create <FLOW_ID> --name "with-inputs" --cron "* * * * *" --input "city=Moscow"
+automata schedule show <ID>                 # Детали расписания
+automata schedule update <ID> --name "new"  # Обновить
+automata schedule delete <ID>               # Удалить
+automata schedule enable <ID>               # Включить
+automata schedule disable <ID>              # Выключить
 ```
 
 ---
