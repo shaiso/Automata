@@ -143,6 +143,73 @@ func TaskFromDomain(t domain.Task) TaskResponse {
 	}
 }
 
+// Proposal DTOs
+
+// CreateProposalRequest — запрос на создание proposal.
+type CreateProposalRequest struct {
+	Title       string         `json:"title"`
+	Description string         `json:"description,omitempty"`
+	CreatedBy   string         `json:"created_by,omitempty"`
+	Spec        domain.FlowSpec `json:"spec"`
+}
+
+// UpdateProposalRequest — запрос на обновление proposal (только DRAFT).
+type UpdateProposalRequest struct {
+	Title       *string          `json:"title,omitempty"`
+	Description *string          `json:"description,omitempty"`
+	Spec        *domain.FlowSpec `json:"spec,omitempty"`
+}
+
+// ReviewRequest — запрос на approve/reject.
+type ReviewRequest struct {
+	Reviewer string `json:"reviewer"`
+	Comment  string `json:"comment,omitempty"`
+}
+
+// ProposalResponse — ответ с proposal.
+type ProposalResponse struct {
+	ID             uuid.UUID              `json:"id"`
+	FlowID         uuid.UUID              `json:"flow_id"`
+	BaseVersion    *int                   `json:"base_version,omitempty"`
+	ProposedSpec   domain.FlowSpec        `json:"proposed_spec"`
+	Status         string                 `json:"status"`
+	Title          string                 `json:"title,omitempty"`
+	Description    string                 `json:"description,omitempty"`
+	CreatedBy      string                 `json:"created_by,omitempty"`
+	CreatedAt      time.Time              `json:"created_at"`
+	UpdatedAt      time.Time              `json:"updated_at"`
+	ReviewedBy     string                 `json:"reviewed_by,omitempty"`
+	ReviewedAt     *time.Time             `json:"reviewed_at,omitempty"`
+	ReviewComment  string                 `json:"review_comment,omitempty"`
+	SandboxRunID   *uuid.UUID             `json:"sandbox_run_id,omitempty"`
+	SandboxResult  *domain.SandboxResult  `json:"sandbox_result,omitempty"`
+	AppliedVersion *int                   `json:"applied_version,omitempty"`
+	AppliedAt      *time.Time             `json:"applied_at,omitempty"`
+}
+
+// ProposalFromDomain конвертирует domain.Proposal в ProposalResponse.
+func ProposalFromDomain(p domain.Proposal) ProposalResponse {
+	return ProposalResponse{
+		ID:             p.ID,
+		FlowID:         p.FlowID,
+		BaseVersion:    p.BaseVersion,
+		ProposedSpec:   p.ProposedSpec,
+		Status:         p.Status.String(),
+		Title:          p.Title,
+		Description:    p.Description,
+		CreatedBy:      p.CreatedBy,
+		CreatedAt:      p.CreatedAt,
+		UpdatedAt:      p.UpdatedAt,
+		ReviewedBy:     p.ReviewedBy,
+		ReviewedAt:     p.ReviewedAt,
+		ReviewComment:  p.ReviewComment,
+		SandboxRunID:   p.SandboxRunID,
+		SandboxResult:  p.SandboxResult,
+		AppliedVersion: p.AppliedVersion,
+		AppliedAt:      p.AppliedAt,
+	}
+}
+
 // Schedule DTOs
 
 // CreateScheduleRequest — запрос на создание schedule.

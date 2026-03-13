@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shaiso/Automata/internal/api"
+	"github.com/shaiso/Automata/internal/mq"
 	"github.com/shaiso/Automata/internal/repo"
 	"github.com/shaiso/Automata/internal/telemetry"
 )
@@ -39,11 +40,33 @@ func main() {
 	defer pool.Close()
 	logger.Info("connected to database")
 
+	// RabbitMQ
+	var publisher *mq.Publisher
+	mqURL := os.Getenv("RABBITMQ_URL")
+	if mqURL == "" {
+		mqURL = "amqp://automata:automata@localhost:5672/"
+	}
+
+	mqConn, err := mq.NewConnection(mqURL, logger)
+	if err != nil {
+		logger.Warn("RabbitMQ not available, running without message publishing", "error", err)
+	} else {
+		defer mqConn.Close()
+		logger.Info("RabbitMQ connected")
+
+		if err := mq.SetupTopology(context.Background(), mqConn); err != nil {
+			logger.Warn("failed to setup topology", "error", err)
+		}
+
+		publisher = mq.NewPublisher(mqConn, logger)
+	}
+
 	// Создаём репозитории
 	flowRepo := repo.NewFlowRepo(pool)
 	runRepo := repo.NewRunRepo(pool)
 	taskRepo := repo.NewTaskRepo(pool)
 	scheduleRepo := repo.NewScheduleRepo(pool)
+	proposalRepo := repo.NewProposalRepo(pool)
 
 	// Создаём API handler
 	handler := api.NewHandler(api.Config{
@@ -51,7 +74,8 @@ func main() {
 		RunRepo:      runRepo,
 		TaskRepo:     taskRepo,
 		ScheduleRepo: scheduleRepo,
-		Publisher:    nil, // Подключим позже, когда будет RabbitMQ
+		ProposalRepo: proposalRepo,
+		Publisher:    publisher,
 		Logger:       logger,
 	})
 

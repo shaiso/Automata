@@ -216,9 +216,12 @@ Flow описывается в формате JSON:
 - [x] Точка входа cmd/automata-cli с PersistentFlags (--api-url, --json)
 
 ### Фаза 9: PR-Workflow + Sandbox
-- [ ] Proposals (предложения изменений)
-- [ ] Изолированное тестовое выполнение
-- [ ] Сравнение результатов
+- [x] Proposal API (CRUD + submit/approve/reject/apply/sandbox)
+- [x] Proposal CLI (proposal list, create, show, update, delete, submit, approve, reject, apply, sandbox)
+- [x] Sandbox пакет (Collector, Differ, WaitForResult, CompareWithBaseline)
+- [x] Полный PR-workflow: DRAFT → PENDING_REVIEW → APPROVED → APPLIED
+- [x] Sandbox run с is_sandbox=true, сбор результатов, deep diff
+- [x] spec_override в runs — sandbox запускает ProposedSpec напрямую, без создания временной версии flow
 
 ### Фаза 10: E2E Testing
 - [ ] Интеграционные тесты
@@ -273,6 +276,26 @@ automata run tasks <RUN_ID>                 # Список задач в run
 automata run cancel <RUN_ID>                # Отменить run
 ```
 
+### Proposals (PR-workflow)
+
+```bash
+automata proposal list                              # Список proposals
+automata proposal list --flow-id <FLOW_ID>          # Фильтр по flow
+automata proposal list --status DRAFT               # Фильтр по статусу
+automata proposal create <FLOW_ID> --title "Update fetch step" --spec-file spec.json
+automata proposal create <FLOW_ID> --title "Fix" --spec-file spec.json --created-by "alice"
+automata proposal show <ID>                         # Детали proposal
+automata proposal update <ID> --title "New title"   # Обновить (только DRAFT)
+automata proposal update <ID> --spec-file new.json  # Обновить spec
+automata proposal delete <ID>                       # Удалить (только DRAFT)
+automata proposal submit <ID>                       # Отправить на review
+automata proposal approve <ID> --reviewer "bob"     # Одобрить
+automata proposal approve <ID> --reviewer "bob" --comment "LGTM"
+automata proposal reject <ID> --reviewer "bob" --comment "needs fix"
+automata proposal apply <ID>                        # Применить (создать новую версию flow)
+automata proposal sandbox <ID>                      # Запустить тестовый sandbox run
+```
+
 ### Schedules
 
 ```bash
@@ -308,3 +331,5 @@ proposals ───────────┘ (PR-workflow)
 **Run:** `PENDING` → `RUNNING` → `SUCCEEDED` | `FAILED` | `CANCELLED`
 
 **Task:** `QUEUED` → `RUNNING` → `SUCCEEDED` | `FAILED`
+
+**Proposal:** `DRAFT` → `PENDING_REVIEW` → `APPROVED` → `APPLIED` | `REJECTED`

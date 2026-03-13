@@ -48,13 +48,9 @@ func TestHTTPExecutor_GET_Success(t *testing.T) {
 		t.Errorf("expected status 200, got %v", result.Outputs["status_code"])
 	}
 
-	// Проверяем headers
-	headers, ok := result.Outputs["headers"].(map[string]string)
-	if !ok {
-		t.Fatal("headers should be map[string]string")
-	}
-	if headers["X-Custom"] != "test-value" {
-		t.Errorf("expected X-Custom header, got %v", headers["X-Custom"])
+	// Проверяем что headers не включены по умолчанию
+	if _, ok := result.Outputs["headers"]; ok {
+		t.Error("headers should not be included by default")
 	}
 
 	// Проверяем body (должен быть распарсен как JSON)

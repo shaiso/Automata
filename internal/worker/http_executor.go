@@ -85,7 +85,8 @@ func (e *HTTPExecutor) Execute(ctx context.Context, task *domain.Task) (*Executi
 	}
 
 	// Формируем outputs
-	outputs := buildOutputs(resp, respBody)
+	includeHeaders := getBool(task.Payload, "include_headers", false)
+	outputs := buildOutputs(resp, respBody, includeHeaders)
 
 	// HTTP >= 400 — логическая ошибка (outputs сохраняются для retry по status_code)
 	if resp.StatusCode >= 400 {
@@ -100,24 +101,27 @@ func (e *HTTPExecutor) Execute(ctx context.Context, task *domain.Task) (*Executi
 }
 
 // buildOutputs формирует outputs из HTTP-ответа.
-func buildOutputs(resp *http.Response, body []byte) map[string]any {
-	// Парсим заголовки
-	headers := make(map[string]string, len(resp.Header))
-	for key := range resp.Header {
-		headers[key] = resp.Header.Get(key)
-	}
-
+func buildOutputs(resp *http.Response, body []byte, includeHeaders bool) map[string]any {
 	// Парсим body: пробуем JSON, иначе строка
 	var parsedBody any
 	if err := json.Unmarshal(body, &parsedBody); err != nil {
 		parsedBody = string(body)
 	}
 
-	return map[string]any{
+	outputs := map[string]any{
 		"status_code": resp.StatusCode,
-		"headers":     headers,
 		"body":        parsedBody,
 	}
+
+	if includeHeaders {
+		headers := make(map[string]string, len(resp.Header))
+		for key := range resp.Header {
+			headers[key] = resp.Header.Get(key)
+		}
+		outputs["headers"] = headers
+	}
+
+	return outputs
 }
 
 // getString извлекает строку из map с default значением.
@@ -166,6 +170,16 @@ func setHeaders(req *http.Request, payload map[string]any) {
 			req.Header.Set(key, val)
 		}
 	}
+}
+
+// getBool извлекает bool из map с default значением.
+func getBool(m map[string]any, key string, defaultVal bool) bool {
+	if val, ok := m[key]; ok {
+		if b, ok := val.(bool); ok {
+			return b
+		}
+	}
+	return defaultVal
 }
 
 // truncate обрезает строку до указанной длины.

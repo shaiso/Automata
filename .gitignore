@@ -22,3 +22,9 @@ CLAUDE.md
 
 # Docs (локальная документация)
 docs/
+
+# CLI binary
+automata
+
+# Examples (тестовые спеки)
+examples/

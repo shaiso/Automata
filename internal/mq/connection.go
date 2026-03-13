@@ -141,11 +141,28 @@ func (c *Connection) reconnect() {
 	}
 }
 
-// Channel возвращает текущий AMQP канал.
+// Channel возвращает текущий AMQP канал (общий, для publisher).
 func (c *Connection) Channel() *amqp.Channel {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.channel
+}
+
+// NewChannel открывает новый AMQP канал (для consumer — каждому свой).
+func (c *Connection) NewChannel() (*amqp.Channel, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.conn == nil || c.conn.IsClosed() {
+		return nil, fmt.Errorf("connection not available")
+	}
+
+	ch, err := c.conn.Channel()
+	if err != nil {
+		return nil, fmt.Errorf("open channel: %w", err)
+	}
+
+	return ch, nil
 }
 
 // ReconnectNotify возвращает канал для уведомлений о переподключении.

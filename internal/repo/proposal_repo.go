@@ -31,8 +31,6 @@ type ProposalFilter struct {
 	Offset int
 }
 
-// --- Базовые CRUD ---
-
 // Create создаёт новый proposal.
 func (r *ProposalRepo) Create(ctx context.Context, p *domain.Proposal) error {
 	specJSON, err := json.Marshal(p.ProposedSpec)
@@ -315,14 +313,14 @@ func (r *ProposalRepo) MarkApplied(ctx context.Context, id uuid.UUID, version in
 	return nil
 }
 
-// --- Вспомогательные методы ---
-
 // scanProposal сканирует одну строку в Proposal.
 func (r *ProposalRepo) scanProposal(row pgx.Row) (*domain.Proposal, error) {
 	var p domain.Proposal
 	var specJSON []byte
 	var sandboxResultJSON []byte
 	var statusStr string
+	var reviewedBy *string
+	var reviewComment *string
 
 	err := row.Scan(
 		&p.ID,
@@ -335,9 +333,9 @@ func (r *ProposalRepo) scanProposal(row pgx.Row) (*domain.Proposal, error) {
 		&p.CreatedBy,
 		&p.CreatedAt,
 		&p.UpdatedAt,
-		&p.ReviewedBy,
+		&reviewedBy,
 		&p.ReviewedAt,
-		&p.ReviewComment,
+		&reviewComment,
 		&p.SandboxRunID,
 		&sandboxResultJSON,
 		&p.AppliedVersion,
@@ -348,6 +346,13 @@ func (r *ProposalRepo) scanProposal(row pgx.Row) (*domain.Proposal, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("scan proposal: %w", err)
+	}
+
+	if reviewedBy != nil {
+		p.ReviewedBy = *reviewedBy
+	}
+	if reviewComment != nil {
+		p.ReviewComment = *reviewComment
 	}
 
 	// Парсим status
@@ -379,6 +384,8 @@ func (r *ProposalRepo) scanProposals(rows pgx.Rows) ([]domain.Proposal, error) {
 		var specJSON []byte
 		var sandboxResultJSON []byte
 		var statusStr string
+		var reviewedBy *string
+		var reviewComment *string
 
 		err := rows.Scan(
 			&p.ID,
@@ -391,9 +398,9 @@ func (r *ProposalRepo) scanProposals(rows pgx.Rows) ([]domain.Proposal, error) {
 			&p.CreatedBy,
 			&p.CreatedAt,
 			&p.UpdatedAt,
-			&p.ReviewedBy,
+			&reviewedBy,
 			&p.ReviewedAt,
-			&p.ReviewComment,
+			&reviewComment,
 			&p.SandboxRunID,
 			&sandboxResultJSON,
 			&p.AppliedVersion,
@@ -401,6 +408,13 @@ func (r *ProposalRepo) scanProposals(rows pgx.Rows) ([]domain.Proposal, error) {
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan proposal: %w", err)
+		}
+
+		if reviewedBy != nil {
+			p.ReviewedBy = *reviewedBy
+		}
+		if reviewComment != nil {
+			p.ReviewComment = *reviewComment
 		}
 
 		// Парсим status

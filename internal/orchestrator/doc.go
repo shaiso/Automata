@@ -76,11 +76,14 @@
 // Orchestrator:
 //  1. Загружает run из БД
 //  2. Проверяет статус (должен быть PENDING)
-//  3. Загружает FlowVersion
+//  3. Загружает FlowVersion из БД, либо использует SpecOverride (для sandbox runs)
 //  4. Создаёт RunState и инициализирует его (валидация, DAG, контекст)
 //  5. Добавляет в activeRuns
 //  6. Переводит run в RUNNING
 //  7. Запускает готовые шаги (без зависимостей)
+//
+// Для sandbox runs поле Run.SpecOverride содержит ProposedSpec из proposal.
+// Это позволяет тестировать предложенные изменения без создания версии в flow_versions.
 //
 // ## task.completed
 //

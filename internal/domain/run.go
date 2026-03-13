@@ -49,6 +49,10 @@ type Run struct {
 	// IsSandbox — флаг, указывающий что это тестовый запуск (sandbox mode).
 	IsSandbox bool `json:"is_sandbox,omitempty"`
 
+	// SpecOverride — переопределение FlowSpec для sandbox runs.
+	// Если задано, оркестратор использует эту спеку вместо загрузки из flow_versions.
+	SpecOverride *FlowSpec `json:"spec_override,omitempty"`
+
 	// CreatedAt — время создания run.
 	CreatedAt time.Time `json:"created_at"`
 }

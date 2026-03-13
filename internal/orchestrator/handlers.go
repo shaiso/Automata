@@ -89,13 +89,23 @@ func (o *Orchestrator) processRun(ctx context.Context, runID uuid.UUID) error {
 		return ErrRunNotPending
 	}
 
-	// 3. Загружаем FlowVersion
-	version, err := o.flowRepo.GetVersion(ctx, run.FlowID, run.Version)
-	if err != nil {
-		if errors.Is(err, repo.ErrNotFound) {
-			return o.failRun(ctx, run, fmt.Sprintf("flow version not found: %s v%d", run.FlowID, run.Version))
+	// 3. Загружаем FlowVersion (или используем spec_override для sandbox)
+	var version *domain.FlowVersion
+	if run.SpecOverride != nil {
+		// Sandbox run с переопределённой спекой — не загружаем из flow_versions
+		version = &domain.FlowVersion{
+			FlowID: run.FlowID,
+			Version: run.Version,
+			Spec:   *run.SpecOverride,
 		}
-		return fmt.Errorf("get flow version: %w", err)
+	} else {
+		version, err = o.flowRepo.GetVersion(ctx, run.FlowID, run.Version)
+		if err != nil {
+			if errors.Is(err, repo.ErrNotFound) {
+				return o.failRun(ctx, run, fmt.Sprintf("flow version not found: %s v%d", run.FlowID, run.Version))
+			}
+			return fmt.Errorf("get flow version: %w", err)
+		}
 	}
 
 	// 4. Создаём RunState
@@ -367,10 +377,19 @@ func (o *Orchestrator) restoreRunState(ctx context.Context, runID uuid.UUID) (*R
 		return nil, nil
 	}
 
-	// Загружаем FlowVersion
-	version, err := o.flowRepo.GetVersion(ctx, run.FlowID, run.Version)
-	if err != nil {
-		return nil, fmt.Errorf("get flow version: %w", err)
+	// Загружаем FlowVersion (или используем spec_override для sandbox)
+	var version *domain.FlowVersion
+	if run.SpecOverride != nil {
+		version = &domain.FlowVersion{
+			FlowID: run.FlowID,
+			Version: run.Version,
+			Spec:   *run.SpecOverride,
+		}
+	} else {
+		version, err = o.flowRepo.GetVersion(ctx, run.FlowID, run.Version)
+		if err != nil {
+			return nil, fmt.Errorf("get flow version: %w", err)
+		}
 	}
 
 	// Создаём и инициализируем state

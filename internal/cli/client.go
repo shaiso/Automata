@@ -77,7 +77,55 @@ type ScheduleResponse struct {
 	UpdatedAt   string         `json:"updated_at"`
 }
 
+// ProposalResponse — proposal из API.
+type ProposalResponse struct {
+	ID             string         `json:"id"`
+	FlowID         string         `json:"flow_id"`
+	BaseVersion    *int           `json:"base_version,omitempty"`
+	ProposedSpec   map[string]any `json:"proposed_spec"`
+	Status         string         `json:"status"`
+	Title          string         `json:"title,omitempty"`
+	Description    string         `json:"description,omitempty"`
+	CreatedBy      string         `json:"created_by,omitempty"`
+	CreatedAt      string         `json:"created_at"`
+	UpdatedAt      string         `json:"updated_at"`
+	ReviewedBy     string         `json:"reviewed_by,omitempty"`
+	ReviewedAt     string         `json:"reviewed_at,omitempty"`
+	ReviewComment  string         `json:"review_comment,omitempty"`
+	SandboxRunID   string         `json:"sandbox_run_id,omitempty"`
+	SandboxResult  map[string]any `json:"sandbox_result,omitempty"`
+	AppliedVersion *int           `json:"applied_version,omitempty"`
+	AppliedAt      string         `json:"applied_at,omitempty"`
+}
+
 // --- Request types ---
+
+// CreateProposalRequest — создание proposal.
+type CreateProposalRequest struct {
+	Title       string             `json:"title"`
+	Description string             `json:"description,omitempty"`
+	CreatedBy   string             `json:"created_by,omitempty"`
+	Spec        json.RawMessage    `json:"spec"`
+}
+
+// UpdateProposalRequest — обновление proposal.
+type UpdateProposalRequestCLI struct {
+	Title       *string          `json:"title,omitempty"`
+	Description *string          `json:"description,omitempty"`
+	Spec        json.RawMessage  `json:"spec,omitempty"`
+}
+
+// ReviewRequest — запрос approve/reject.
+type ReviewRequest struct {
+	Reviewer string `json:"reviewer"`
+	Comment  string `json:"comment,omitempty"`
+}
+
+// ListProposalsOpts — параметры фильтрации proposals.
+type ListProposalsOpts struct {
+	FlowID string
+	Status string
+}
 
 // UpdateFlowRequest — обновление flow.
 type UpdateFlowRequest struct {
@@ -307,6 +355,84 @@ func (c *Client) DisableSchedule(id string) (*ScheduleResponse, error) {
 	body := map[string]bool{"enabled": false}
 	err := c.put("/api/v1/schedules/"+id+"/enabled", body, &schedule)
 	return &schedule, err
+}
+
+// --- Proposals ---
+
+// ListProposals возвращает список proposals.
+func (c *Client) ListProposals(opts ListProposalsOpts) ([]ProposalResponse, error) {
+	params := url.Values{}
+	if opts.FlowID != "" {
+		params.Set("flow_id", opts.FlowID)
+	}
+	if opts.Status != "" {
+		params.Set("status", opts.Status)
+	}
+
+	var proposals []ProposalResponse
+	err := c.list("/api/v1/proposals", params, &proposals)
+	return proposals, err
+}
+
+// CreateProposal создаёт proposal для flow.
+func (c *Client) CreateProposal(flowID string, req CreateProposalRequest) (*ProposalResponse, error) {
+	var proposal ProposalResponse
+	err := c.post("/api/v1/flows/"+flowID+"/proposals", req, &proposal)
+	return &proposal, err
+}
+
+// GetProposal возвращает proposal по ID.
+func (c *Client) GetProposal(id string) (*ProposalResponse, error) {
+	var proposal ProposalResponse
+	err := c.get("/api/v1/proposals/"+id, &proposal)
+	return &proposal, err
+}
+
+// UpdateProposal обновляет proposal.
+func (c *Client) UpdateProposal(id string, req UpdateProposalRequestCLI) (*ProposalResponse, error) {
+	var proposal ProposalResponse
+	err := c.put("/api/v1/proposals/"+id, req, &proposal)
+	return &proposal, err
+}
+
+// DeleteProposal удаляет proposal.
+func (c *Client) DeleteProposal(id string) error {
+	return c.delete("/api/v1/proposals/" + id)
+}
+
+// SubmitProposal отправляет proposal на review.
+func (c *Client) SubmitProposal(id string) (*ProposalResponse, error) {
+	var proposal ProposalResponse
+	err := c.post("/api/v1/proposals/"+id+"/submit", nil, &proposal)
+	return &proposal, err
+}
+
+// ApproveProposal одобряет proposal.
+func (c *Client) ApproveProposal(id string, req ReviewRequest) (*ProposalResponse, error) {
+	var proposal ProposalResponse
+	err := c.post("/api/v1/proposals/"+id+"/approve", req, &proposal)
+	return &proposal, err
+}
+
+// RejectProposal отклоняет proposal.
+func (c *Client) RejectProposal(id string, req ReviewRequest) (*ProposalResponse, error) {
+	var proposal ProposalResponse
+	err := c.post("/api/v1/proposals/"+id+"/reject", req, &proposal)
+	return &proposal, err
+}
+
+// ApplyProposal применяет proposal.
+func (c *Client) ApplyProposal(id string) (*ProposalResponse, error) {
+	var proposal ProposalResponse
+	err := c.post("/api/v1/proposals/"+id+"/apply", nil, &proposal)
+	return &proposal, err
+}
+
+// RunProposalSandbox запускает sandbox run для proposal.
+func (c *Client) RunProposalSandbox(id string) (*ProposalResponse, error) {
+	var proposal ProposalResponse
+	err := c.post("/api/v1/proposals/"+id+"/sandbox", nil, &proposal)
+	return &proposal, err
 }
 
 // --- HTTP helpers ---

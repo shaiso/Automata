@@ -29,9 +29,17 @@ func (r *RunRepo) Create(ctx context.Context, run *domain.Run) error {
 		return fmt.Errorf("marshal inputs: %w", err)
 	}
 
+	var specOverrideJSON []byte
+	if run.SpecOverride != nil {
+		specOverrideJSON, err = json.Marshal(run.SpecOverride)
+		if err != nil {
+			return fmt.Errorf("marshal spec_override: %w", err)
+		}
+	}
+
 	query := `
-		INSERT INTO runs (id, flow_id, version, status, inputs, idempotency_key, is_sandbox, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO runs (id, flow_id, version, status, inputs, idempotency_key, is_sandbox, spec_override, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 	_, err = r.pool.Exec(ctx, query,
 		run.ID,
@@ -41,6 +49,7 @@ func (r *RunRepo) Create(ctx context.Context, run *domain.Run) error {
 		inputsJSON,
 		nullString(run.IdempotencyKey),
 		run.IsSandbox,
+		specOverrideJSON,
 		run.CreatedAt,
 	)
 	if err != nil {
@@ -53,7 +62,7 @@ func (r *RunRepo) Create(ctx context.Context, run *domain.Run) error {
 func (r *RunRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Run, error) {
 	query := `
 		SELECT id, flow_id, version, status, inputs, started_at, finished_at,
-		       error, idempotency_key, is_sandbox, created_at
+		       error, idempotency_key, is_sandbox, spec_override, created_at
 		FROM runs
 		WHERE id = $1
 	`
@@ -64,7 +73,7 @@ func (r *RunRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Run, error
 func (r *RunRepo) GetByIdempotencyKey(ctx context.Context, flowID uuid.UUID, key string) (*domain.Run, error) {
 	query := `
 		SELECT id, flow_id, version, status, inputs, started_at, finished_at,
-		       error, idempotency_key, is_sandbox, created_at
+		       error, idempotency_key, is_sandbox, spec_override, created_at
 		FROM runs
 		WHERE flow_id = $1 AND idempotency_key = $2
 	`
@@ -75,7 +84,7 @@ func (r *RunRepo) GetByIdempotencyKey(ctx context.Context, flowID uuid.UUID, key
 func (r *RunRepo) List(ctx context.Context, filter RunFilter) ([]domain.Run, error) {
 	query := `
 		SELECT id, flow_id, version, status, inputs, started_at, finished_at,
-		       error, idempotency_key, is_sandbox, created_at
+		       error, idempotency_key, is_sandbox, spec_override, created_at
 		FROM runs
 		WHERE ($1::uuid IS NULL OR flow_id = $1)
 		  AND ($2::text IS NULL OR status = $2::run_status)
@@ -131,7 +140,7 @@ func (r *RunRepo) Update(ctx context.Context, run *domain.Run) error {
 func (r *RunRepo) ListPending(ctx context.Context, limit int) ([]domain.Run, error) {
 	query := `
 		SELECT id, flow_id, version, status, inputs, started_at, finished_at,
-		       error, idempotency_key, is_sandbox, created_at
+		       error, idempotency_key, is_sandbox, spec_override, created_at
 		FROM runs
 		WHERE status = 'PENDING'
 		ORDER BY created_at ASC
@@ -170,6 +179,7 @@ func (r *RunRepo) scanRun(row pgx.Row) (*domain.Run, error) {
 	var inputsJSON []byte
 	var idempotencyKey *string
 	var runError *string
+	var specOverrideJSON []byte
 
 	err := row.Scan(
 		&run.ID,
@@ -182,6 +192,7 @@ func (r *RunRepo) scanRun(row pgx.Row) (*domain.Run, error) {
 		&runError,
 		&idempotencyKey,
 		&run.IsSandbox,
+		&specOverrideJSON,
 		&run.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -194,6 +205,13 @@ func (r *RunRepo) scanRun(row pgx.Row) (*domain.Run, error) {
 	if inputsJSON != nil {
 		if err := json.Unmarshal(inputsJSON, &run.Inputs); err != nil {
 			return nil, fmt.Errorf("unmarshal inputs: %w", err)
+		}
+	}
+
+	if specOverrideJSON != nil {
+		run.SpecOverride = &domain.FlowSpec{}
+		if err := json.Unmarshal(specOverrideJSON, run.SpecOverride); err != nil {
+			return nil, fmt.Errorf("unmarshal spec_override: %w", err)
 		}
 	}
 
@@ -213,6 +231,7 @@ func (r *RunRepo) scanRunFromRows(rows pgx.Rows) (*domain.Run, error) {
 	var inputsJSON []byte
 	var idempotencyKey *string
 	var runError *string
+	var specOverrideJSON []byte
 
 	err := rows.Scan(
 		&run.ID,
@@ -225,6 +244,7 @@ func (r *RunRepo) scanRunFromRows(rows pgx.Rows) (*domain.Run, error) {
 		&runError,
 		&idempotencyKey,
 		&run.IsSandbox,
+		&specOverrideJSON,
 		&run.CreatedAt,
 	)
 	if err != nil {
@@ -234,6 +254,13 @@ func (r *RunRepo) scanRunFromRows(rows pgx.Rows) (*domain.Run, error) {
 	if inputsJSON != nil {
 		if err := json.Unmarshal(inputsJSON, &run.Inputs); err != nil {
 			return nil, fmt.Errorf("unmarshal inputs: %w", err)
+		}
+	}
+
+	if specOverrideJSON != nil {
+		run.SpecOverride = &domain.FlowSpec{}
+		if err := json.Unmarshal(specOverrideJSON, run.SpecOverride); err != nil {
+			return nil, fmt.Errorf("unmarshal spec_override: %w", err)
 		}
 	}
 

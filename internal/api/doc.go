@@ -9,6 +9,7 @@
 //   - flow_handler.go     — обработчики для /flows
 //   - run_handler.go      — обработчики для /runs
 //   - schedule_handler.go — обработчики для /schedules
+//   - proposal_handler.go — обработчики для /proposals (PR-workflow + sandbox)
 //
-// API предоставляет REST endpoints для управления flows, runs и schedules.
+// API предоставляет REST endpoints для управления flows, runs, schedules и proposals.
 package api

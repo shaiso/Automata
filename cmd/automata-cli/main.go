@@ -46,6 +46,7 @@ func main() {
 		cli.NewFlowCmd(clientFn, outputFn),
 		cli.NewRunCmd(clientFn, outputFn),
 		cli.NewScheduleCmd(clientFn, outputFn),
+		cli.NewProposalCmd(clientFn, outputFn),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

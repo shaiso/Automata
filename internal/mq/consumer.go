@@ -123,15 +123,16 @@ func (c *Consumer) consume(ctx context.Context) error {
 	}
 }
 
-// setupConsume настраивает канал и начинает потребление.
+// setupConsume настраивает отдельный канал и начинает потребление.
 func (c *Consumer) setupConsume() (<-chan amqp.Delivery, error) {
-	ch := c.conn.Channel()
-	if ch == nil {
-		return nil, fmt.Errorf("no channel available")
+	ch, err := c.conn.NewChannel()
+	if err != nil {
+		return nil, fmt.Errorf("new channel: %w", err)
 	}
 
 	// Устанавливаем prefetch
 	if err := ch.Qos(c.prefetch, 0, false); err != nil {
+		ch.Close()
 		return nil, fmt.Errorf("set qos: %w", err)
 	}
 
@@ -146,6 +147,7 @@ func (c *Consumer) setupConsume() (<-chan amqp.Delivery, error) {
 		nil,     // args
 	)
 	if err != nil {
+		ch.Close()
 		return nil, fmt.Errorf("consume: %w", err)
 	}
 

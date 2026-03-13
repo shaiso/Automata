@@ -38,4 +38,16 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("PUT /api/v1/schedules/{id}", chain(http.HandlerFunc(h.UpdateSchedule)))
 	mux.Handle("DELETE /api/v1/schedules/{id}", chain(http.HandlerFunc(h.DeleteSchedule)))
 	mux.Handle("PUT /api/v1/schedules/{id}/enabled", chain(http.HandlerFunc(h.SetScheduleEnabled)))
+
+	// Proposals
+	mux.Handle("GET /api/v1/proposals", chain(http.HandlerFunc(h.ListProposals)))
+	mux.Handle("POST /api/v1/flows/{id}/proposals", chain(http.HandlerFunc(h.CreateProposal)))
+	mux.Handle("GET /api/v1/proposals/{id}", chain(http.HandlerFunc(h.GetProposal)))
+	mux.Handle("PUT /api/v1/proposals/{id}", chain(http.HandlerFunc(h.UpdateProposal)))
+	mux.Handle("DELETE /api/v1/proposals/{id}", chain(http.HandlerFunc(h.DeleteProposal)))
+	mux.Handle("POST /api/v1/proposals/{id}/submit", chain(http.HandlerFunc(h.SubmitProposal)))
+	mux.Handle("POST /api/v1/proposals/{id}/approve", chain(http.HandlerFunc(h.ApproveProposal)))
+	mux.Handle("POST /api/v1/proposals/{id}/reject", chain(http.HandlerFunc(h.RejectProposal)))
+	mux.Handle("POST /api/v1/proposals/{id}/apply", chain(http.HandlerFunc(h.ApplyProposal)))
+	mux.Handle("POST /api/v1/proposals/{id}/sandbox", chain(http.HandlerFunc(h.RunSandbox)))
 }
